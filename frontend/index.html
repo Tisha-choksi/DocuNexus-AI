@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DocuNexus AI</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Enterprise Document Intelligence</p>
+        <h1>DocuNexus AI</h1>
+      </div>
+      <button id="refreshButton" class="icon-button" title="Refresh documents">Refresh</button>
+    </header>
+
+    <main class="shell">
+      <section class="upload-panel">
+        <div>
+          <h2>Upload Documents</h2>
+          <p>Process PDFs, Word documents, and presentations into structured searchable text.</p>
+        </div>
+
+        <label id="dropZone" class="drop-zone">
+          <input id="fileInput" type="file" multiple accept=".pdf,.docx,.pptx" />
+          <span class="drop-title">Drop files here or browse</span>
+          <span class="drop-subtitle">PDF, DOCX, PPTX up to 50 MB each</span>
+        </label>
+
+        <div id="selectedFiles" class="selected-files"></div>
+
+        <button id="uploadButton" class="primary-button">Upload and Process</button>
+        <p id="uploadStatus" class="status-text"></p>
+      </section>
+
+      <section class="stats-grid">
+        <article>
+          <span id="totalDocs">0</span>
+          <p>Documents</p>
+        </article>
+        <article>
+          <span id="totalPages">0</span>
+          <p>Pages</p>
+        </article>
+        <article>
+          <span id="totalWords">0</span>
+          <p>Words</p>
+        </article>
+        <article>
+          <span id="ocrDocs">0</span>
+          <p>OCR Files</p>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <aside class="document-list-panel">
+          <div class="section-heading">
+            <h2>Library</h2>
+            <input id="searchInput" type="search" placeholder="Search files" />
+          </div>
+          <div id="documentList" class="document-list"></div>
+        </aside>
+
+        <section class="detail-panel">
+          <div id="emptyState" class="empty-state">
+            <h2>Select a document</h2>
+            <p>Extracted text, metadata, status, and download controls will appear here.</p>
+          </div>
+
+          <div id="documentDetail" class="document-detail hidden">
+            <div class="detail-header">
+              <div>
+                <p id="detailType" class="eyebrow"></p>
+                <h2 id="detailTitle"></h2>
+              </div>
+              <div class="detail-actions">
+                <a id="downloadLink" class="secondary-button" href="#">Download</a>
+                <button id="deleteButton" class="danger-button">Delete</button>
+              </div>
+            </div>
+
+            <div id="detailStats" class="detail-stats"></div>
+
+            <div class="tabs">
+              <button class="tab active" data-tab="text">Text</button>
+              <button class="tab" data-tab="metadata">Metadata</button>
+            </div>
+
+            <pre id="textView" class="text-view"></pre>
+            <div id="metadataView" class="metadata-view hidden"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
+
