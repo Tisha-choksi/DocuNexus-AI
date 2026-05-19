@@ -1,12 +1,15 @@
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Body, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from ..config import ALLOWED_EXTENSIONS, MAX_UPLOAD_MB, UPLOAD_DIR
 from ..database import get_connection, now_iso
+from ..services.export_service import export_pages_to_csv, export_pages_to_pdf, export_pages_to_txt
+from ..services.insights import answer_question, search_pages, summarize_pages
 from ..services.processor import process_document
+from ..services.spreadsheet_service import spreadsheet_to_csv, spreadsheet_to_pdf
 
 
 router = APIRouter()
@@ -79,6 +82,34 @@ def list_documents():
     return {"documents": [row_to_dict(row) for row in rows]}
 
 
+@router.get("/search")
+def search_documents(query: Annotated[str, Query(min_length=1)]):
+    with get_connection() as conn:
+        documents = conn.execute(
+            """
+            SELECT id, original_filename, file_type, status
+            FROM documents
+            WHERE status = 'processed'
+            ORDER BY uploaded_at DESC
+            """
+        ).fetchall()
+
+        results = []
+        for document in documents:
+            pages = conn.execute(
+                "SELECT page_number, text FROM document_pages WHERE document_id = ? ORDER BY page_number",
+                (document["id"],),
+            ).fetchall()
+            matches = search_pages([row_to_dict(row) for row in pages], query)
+            if matches:
+                results.append({
+                    "document": row_to_dict(document),
+                    "matches": matches,
+                })
+
+    return {"query": query, "results": results}
+
+
 @router.get("/{document_id}")
 def get_document(document_id: int):
     with get_connection() as conn:
@@ -116,6 +147,77 @@ def get_document_text(document_id: int):
     return {"document_id": document_id, "text": text}
 
 
+@router.get("/{document_id}/summary")
+def get_document_summary(document_id: int):
+    with get_connection() as conn:
+        document = conn.execute("SELECT id FROM documents WHERE id = ?", (document_id,)).fetchone()
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        pages = conn.execute(
+            "SELECT page_number, text FROM document_pages WHERE document_id = ? ORDER BY page_number",
+            (document_id,),
+        ).fetchall()
+
+    return summarize_pages([row_to_dict(row) for row in pages])
+
+
+@router.post("/{document_id}/chat")
+def chat_with_document(document_id: int, payload: Annotated[dict, Body(...)]):
+    question = str(payload.get("question", "")).strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Ask a question first.")
+
+    with get_connection() as conn:
+        document = conn.execute("SELECT id FROM documents WHERE id = ?", (document_id,)).fetchone()
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        pages = conn.execute(
+            "SELECT page_number, text FROM document_pages WHERE document_id = ? ORDER BY page_number",
+            (document_id,),
+        ).fetchall()
+
+    return answer_question([row_to_dict(row) for row in pages], question)
+
+
+@router.get("/{document_id}/export")
+def export_document(document_id: int, format: Annotated[str, Query(pattern="^(txt|csv|pdf)$")]):
+    with get_connection() as conn:
+        document = conn.execute(
+            "SELECT original_filename, stored_filename, file_type FROM documents WHERE id = ?",
+            (document_id,),
+        ).fetchone()
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        pages = conn.execute(
+            "SELECT page_number, text FROM document_pages WHERE document_id = ? ORDER BY page_number",
+            (document_id,),
+        ).fetchall()
+
+    stem = Path(document["original_filename"]).stem
+    if format == "csv":
+        if document["file_type"] in {"csv", "xls", "xlsx"}:
+            path = UPLOAD_DIR / document["stored_filename"]
+            if not path.exists():
+                raise HTTPException(status_code=404, detail="Stored file not found")
+            output = spreadsheet_to_csv(path, f".{document['file_type']}")
+        else:
+            output = export_pages_to_csv([row_to_dict(row) for row in pages])
+        return FileResponse(output, filename=f"{stem}.csv", media_type="text/csv")
+
+    if format == "txt":
+        output = export_pages_to_txt([row_to_dict(row) for row in pages], document["original_filename"])
+        return FileResponse(output, filename=f"{stem}.txt", media_type="text/plain")
+
+    if document["file_type"] in {"csv", "xls", "xlsx"}:
+        path = UPLOAD_DIR / document["stored_filename"]
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="Stored file not found")
+        output = spreadsheet_to_pdf(path, f".{document['file_type']}", document["original_filename"])
+    else:
+        output = export_pages_to_pdf([row_to_dict(row) for row in pages], document["original_filename"])
+    return FileResponse(output, filename=f"{stem}.pdf", media_type="application/pdf")
+
+
 @router.get("/{document_id}/download")
 def download_document(document_id: int):
     with get_connection() as conn:
@@ -142,4 +244,3 @@ def delete_document(document_id: int):
     if path.exists():
         path.unlink()
     return {"status": "deleted", "document_id": document_id}
-

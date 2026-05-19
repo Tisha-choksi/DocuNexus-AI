@@ -6,6 +6,7 @@ from .metadata import build_common_metadata, text_stats
 from .ocr_service import ocr_pdf, should_run_ocr
 from .pdf_service import extract_pdf
 from .pptx_service import extract_pptx
+from .spreadsheet_service import extract_spreadsheet
 
 
 def process_document(document_id: int, path: Path, original_filename: str, extension: str) -> dict:
@@ -24,6 +25,9 @@ def process_document(document_id: int, path: Path, original_filename: str, exten
         ocr_used = 0
     elif extension == ".pptx":
         pages, metadata = extract_pptx(path)
+        ocr_used = 0
+    elif extension in {".xlsx", ".xls", ".csv"}:
+        pages, metadata = extract_spreadsheet(path, extension)
         ocr_used = 0
     else:
         raise ValueError("Unsupported document type")
@@ -67,4 +71,3 @@ def process_document(document_id: int, path: Path, original_filename: str, exten
         "char_count": char_count,
         "ocr_used": bool(ocr_used),
     }
-
