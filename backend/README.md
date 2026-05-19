@@ -1,6 +1,6 @@
 # DocuNexus AI Backend
 
-Phase 1 backend for document upload, extraction, metadata storage, and optional OCR.
+Phase 1 backend for document upload, extraction, metadata storage, optional OCR, document insights, and spreadsheet export.
 
 ## Run
 
@@ -23,3 +23,6 @@ OCR requires system installs in addition to Python packages:
 
 The app still works without OCR system tools; scanned PDFs will show an OCR dependency message in metadata.
 
+## Spreadsheet Notes
+
+XLSX, XLS, and CSV files can be uploaded. Spreadsheet downloads support conversion to CSV or PDF from the document detail view.

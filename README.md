@@ -5,10 +5,13 @@ Phase 1 of an Enterprise Document Intelligence Platform.
 ## What Phase 1 Includes
 
 - Multi-file upload
-- PDF, DOCX, and PPTX parsing
+- PDF, DOCX, PPTX, XLSX, XLS, and CSV parsing
 - Normalized document pages
 - Metadata extraction
 - Optional OCR fallback for scanned PDFs
+- Search inside extracted text
+- Summary, key points, and document chat
+- Spreadsheet export to CSV or PDF
 - SQLite storage
 - FastAPI REST API
 - Browser frontend for upload, library browsing, extracted text, metadata, download, and delete
@@ -54,7 +57,11 @@ http://127.0.0.1:8000
 - `GET /api/documents`
 - `GET /api/documents/{document_id}`
 - `GET /api/documents/{document_id}/text`
+- `GET /api/documents/search?query=...`
+- `GET /api/documents/{document_id}/summary`
+- `POST /api/documents/{document_id}/chat`
 - `GET /api/documents/{document_id}/download`
+- `GET /api/documents/{document_id}/export?format=csv|pdf`
 - `DELETE /api/documents/{document_id}`
 
 ## Free Tools Used
@@ -65,4 +72,5 @@ http://127.0.0.1:8000
 - python-docx
 - python-pptx
 - Tesseract OCR through pytesseract
-
+- openpyxl and xlrd for spreadsheets
+- ReportLab for spreadsheet PDF export
