@@ -16,3 +16,7 @@ def text_stats(pages: list[dict]) -> tuple[int, int]:
     words = [word for word in full_text.split() if word.strip()]
     return len(words), len(full_text)
 
+def text_stats(pages: list[dict]) -> tuple[int, int]:
+    full_text = " ".join(page.get("text","")for page in page)
+    words = [word for word in full_text.split() if word.strip()]
+    
