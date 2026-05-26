@@ -23,9 +23,9 @@
         </div>
 
         <label id="dropZone" class="drop-zone">
-          <input id="fileInput" type="file" multiple accept=".pdf,.docx,.pptx" />
+          <input id="fileInput" type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv" />
           <span class="drop-title">Drop files here or browse</span>
-          <span class="drop-subtitle">PDF, DOCX, PPTX up to 50 MB each</span>
+          <span class="drop-subtitle">PDF, DOCX, PPTX, XLSX, XLS, CSV up to 50 MB each</span>
         </label>
 
         <div id="selectedFiles" class="selected-files"></div>
@@ -75,20 +75,46 @@
                 <h2 id="detailTitle"></h2>
               </div>
               <div class="detail-actions">
-                <a id="downloadLink" class="secondary-button" href="#">Download</a>
+                <div id="exportControl" class="export-control">
+                  <select id="exportFormat" aria-label="Export format">
+                    <option value="txt">TXT</option>
+                    <option value="csv">CSV</option>
+                    <option value="pdf">PDF</option>
+                    <option value="docx">DOCX</option>
+                    <option value="xlsx">XLSX</option>
+                  </select>
+                  <button id="exportButton" class="secondary-button" type="button">Export</button>
+                </div>
+                <span id="exportStatus" class="inline-status"></span>
+                <a id="downloadLink" class="secondary-button" href="#">Original</a>
                 <button id="deleteButton" class="danger-button">Delete</button>
               </div>
             </div>
 
             <div id="detailStats" class="detail-stats"></div>
 
+            <div class="document-tools">
+              <input id="contentSearchInput" type="search" placeholder="Search inside extracted text" />
+              <div id="contentSearchResults" class="search-results"></div>
+            </div>
+
             <div class="tabs">
               <button class="tab active" data-tab="text">Text</button>
+              <button class="tab" data-tab="summary">Summary</button>
+              <button class="tab" data-tab="chat">Chat</button>
               <button class="tab" data-tab="metadata">Metadata</button>
             </div>
 
-            <pre id="textView" class="text-view"></pre>
-            <div id="metadataView" class="metadata-view hidden"></div>
+            <pre id="textView" class="text-view tab-panel" data-panel="text"></pre>
+            <div id="summaryView" class="summary-view tab-panel hidden" data-panel="summary"></div>
+            <div id="chatView" class="chat-view tab-panel hidden" data-panel="chat">
+              <div id="chatMessages" class="chat-messages"></div>
+              <div class="chat-input-row">
+                <input id="chatInput" type="text" placeholder="Ask a question about this document" />
+                <button id="chatButton" class="primary-button">Ask</button>
+              </div>
+            </div>
+            <div id="metadataView" class="metadata-view tab-panel hidden" data-panel="metadata"></div>
           </div>
         </section>
       </section>
@@ -97,4 +123,3 @@
     <script src="./app.js"></script>
   </body>
 </html>
-
