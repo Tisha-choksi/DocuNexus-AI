@@ -132,3 +132,43 @@ def spreadsheet_to_pdf(path: Path, extension: str, title: str) -> Path:
 
     doc.build(story)
     return output
+
+
+def spreadsheet_to_xlsx(path: Path, extension: str) -> Path:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    sheets = read_spreadsheet(path, extension)
+    output = Path(tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx").name)
+    workbook = Workbook()
+    default_sheet = workbook.active
+    workbook.remove(default_sheet)
+    used_names = set()
+
+    for sheet_name, rows in sheets:
+        base_name = (sheet_name or "Sheet")[:28]
+        safe_name = base_name
+        suffix = 1
+        while safe_name in used_names:
+            suffix += 1
+            safe_name = f"{base_name[:25]}_{suffix}"
+        used_names.add(safe_name)
+        worksheet = workbook.create_sheet(safe_name)
+        for row in rows:
+            worksheet.append(row)
+        if rows:
+            for cell in worksheet[1]:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill("solid", fgColor="146C94")
+        for column in worksheet.columns:
+            column_letter = column[0].column_letter
+            worksheet.column_dimensions[column_letter].width = min(
+                max(len(str(cell.value or "")) for cell in column) + 2,
+                60,
+            )
+
+    if not workbook.worksheets:
+        workbook.create_sheet("Sheet1")
+
+    workbook.save(output)
+    return output

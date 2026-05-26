@@ -93,6 +93,16 @@ def search_pages(pages: list[dict], query: str) -> list[dict]:
 
 def answer_question(pages: list[dict], question: str) -> dict:
     terms = _tokens(question)
+    text = _page_text(pages)
+    sentences = _sentences(text)
+
+    if re.search(r"\b(summary|summarize|overview|about|key points|main points)\b", question, re.IGNORECASE):
+        summary = summarize_pages(pages)
+        answer = summary["summary"]
+        if summary["key_points"]:
+            answer += "\n\nKey points:\n" + "\n".join(f"- {point}" for point in summary["key_points"])
+        return {"answer": answer, "sources": [page.get("page_number") for page in pages[:3]]}
+
     if not terms:
         return {
             "answer": "Ask a more specific question about this document.",
@@ -104,19 +114,27 @@ def answer_question(pages: list[dict], question: str) -> dict:
         for sentence in _sentences(page.get("text", "")):
             sentences_by_page.append((page.get("page_number"), sentence))
 
-    ranked = _rank_sentences([sentence for _, sentence in sentences_by_page], terms)
+    ranked = _rank_sentences(sentences, terms)
     selected = []
     sources = []
 
     for _, sentence in ranked:
         if len(selected) >= 4:
             break
-        if not any(term in sentence.lower() for term in terms):
+        sentence_lower = sentence.lower()
+        if not any(term in sentence_lower for term in terms):
             continue
         selected.append(sentence)
         page_number = next((page for page, item in sentences_by_page if item == sentence), None)
         if page_number and page_number not in sources:
             sources.append(page_number)
+
+    if not selected and sentences:
+        selected = [sentence for _, sentence in ranked[:3]]
+        for sentence in selected:
+            page_number = next((page for page, item in sentences_by_page if item == sentence), None)
+            if page_number and page_number not in sources:
+                sources.append(page_number)
 
     if not selected:
         return {
