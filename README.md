@@ -11,7 +11,7 @@ Phase 1 of an Enterprise Document Intelligence Platform.
 - Optional OCR fallback for scanned PDFs
 - Search inside extracted text
 - Summary, key points, and document chat
-- Spreadsheet export to CSV or PDF
+- Export extracted content to TXT, CSV, PDF, DOCX, or XLSX
 - SQLite storage
 - FastAPI REST API
 - Browser frontend for upload, library browsing, extracted text, metadata, download, and delete
@@ -61,7 +61,7 @@ http://127.0.0.1:8000
 - `GET /api/documents/{document_id}/summary`
 - `POST /api/documents/{document_id}/chat`
 - `GET /api/documents/{document_id}/download`
-- `GET /api/documents/{document_id}/export?format=csv|pdf`
+- `GET /api/documents/{document_id}/export?format=txt|csv|pdf|docx|xlsx`
 - `DELETE /api/documents/{document_id}`
 
 ## Free Tools Used

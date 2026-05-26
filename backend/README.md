@@ -25,4 +25,4 @@ The app still works without OCR system tools; scanned PDFs will show an OCR depe
 
 ## Spreadsheet Notes
 
-XLSX, XLS, and CSV files can be uploaded. Spreadsheet downloads support conversion to CSV or PDF from the document detail view.
+XLSX, XLS, and CSV files can be uploaded. Every processed document can export extracted content to TXT, CSV, PDF, DOCX, or XLSX. Spreadsheet CSV/PDF/XLSX exports use the sheet rows when possible.
