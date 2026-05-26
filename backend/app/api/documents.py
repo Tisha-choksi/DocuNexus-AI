@@ -6,10 +6,16 @@ from fastapi.responses import FileResponse
 
 from ..config import ALLOWED_EXTENSIONS, MAX_UPLOAD_MB, UPLOAD_DIR
 from ..database import get_connection, now_iso
-from ..services.export_service import export_pages_to_csv, export_pages_to_pdf, export_pages_to_txt
+from ..services.export_service import (
+    export_pages_to_csv,
+    export_pages_to_docx,
+    export_pages_to_pdf,
+    export_pages_to_txt,
+    export_pages_to_xlsx,
+)
 from ..services.insights import answer_question, search_pages, summarize_pages
 from ..services.processor import process_document
-from ..services.spreadsheet_service import spreadsheet_to_csv, spreadsheet_to_pdf
+from ..services.spreadsheet_service import spreadsheet_to_csv, spreadsheet_to_pdf, spreadsheet_to_xlsx
 
 
 router = APIRouter()
@@ -17,6 +23,37 @@ router = APIRouter()
 
 def row_to_dict(row):
     return dict(row) if row else None
+
+
+def document_metadata_payload(document: dict, metadata: dict) -> dict:
+    return {
+        "File": {
+            "Original filename": document.get("original_filename"),
+            "File type": document.get("file_type"),
+            "File size": document.get("file_size"),
+            "Stored filename": document.get("stored_filename"),
+        },
+        "Processing": {
+            "Status": document.get("status"),
+            "Pages": document.get("page_count"),
+            "Words": document.get("word_count"),
+            "Characters": document.get("char_count"),
+            "OCR used": "Yes" if document.get("ocr_used") else "No",
+            "Error": document.get("error_message") or "",
+            "Export formats": "TXT, CSV, PDF, DOCX, XLSX",
+        },
+        "Dates": {
+            "Uploaded at": document.get("uploaded_at"),
+            "Updated at": document.get("updated_at"),
+        },
+        "Extracted metadata": metadata,
+    }
+
+
+def export_response(path: Path, filename: str, media_type: str) -> FileResponse:
+    if not path.exists() or path.stat().st_size == 0:
+        raise HTTPException(status_code=500, detail="Export file was not created.")
+    return FileResponse(path, filename=filename, media_type=media_type)
 
 
 @router.post("/upload")
@@ -126,10 +163,13 @@ def get_document(document_id: int):
             (document_id,),
         ).fetchall()
 
+    document_dict = row_to_dict(document)
+    metadata_dict = {row["key"]: row["value"] for row in metadata}
     return {
-        "document": row_to_dict(document),
+        "document": document_dict,
         "pages": [row_to_dict(row) for row in pages],
-        "metadata": {row["key"]: row["value"] for row in metadata},
+        "metadata": metadata_dict,
+        "metadata_sections": document_metadata_payload(document_dict, metadata_dict),
     }
 
 
@@ -180,7 +220,7 @@ def chat_with_document(document_id: int, payload: Annotated[dict, Body(...)]):
 
 
 @router.get("/{document_id}/export")
-def export_document(document_id: int, format: Annotated[str, Query(pattern="^(txt|csv|pdf)$")]):
+def export_document(document_id: int, format: Annotated[str, Query(pattern="^(txt|csv|pdf|docx|xlsx)$")]):
     with get_connection() as conn:
         document = conn.execute(
             "SELECT original_filename, stored_filename, file_type FROM documents WHERE id = ?",
@@ -194,28 +234,57 @@ def export_document(document_id: int, format: Annotated[str, Query(pattern="^(tx
         ).fetchall()
 
     stem = Path(document["original_filename"]).stem
-    if format == "csv":
+    page_dicts = [row_to_dict(row) for row in pages]
+
+    try:
+        if format == "csv":
+            if document["file_type"] in {"csv", "xls", "xlsx"}:
+                path = UPLOAD_DIR / document["stored_filename"]
+                if not path.exists():
+                    raise HTTPException(status_code=404, detail="Stored file not found")
+                output = spreadsheet_to_csv(path, f".{document['file_type']}")
+            else:
+                output = export_pages_to_csv(page_dicts)
+            return export_response(output, f"{stem}.csv", "text/csv")
+
+        if format == "txt":
+            output = export_pages_to_txt(page_dicts, document["original_filename"])
+            return export_response(output, f"{stem}.txt", "text/plain")
+
+        if format == "docx":
+            output = export_pages_to_docx(page_dicts, document["original_filename"])
+            return export_response(
+                output,
+                f"{stem}.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+
+        if format == "xlsx":
+            if document["file_type"] in {"csv", "xls", "xlsx"}:
+                path = UPLOAD_DIR / document["stored_filename"]
+                if not path.exists():
+                    raise HTTPException(status_code=404, detail="Stored file not found")
+                output = spreadsheet_to_xlsx(path, f".{document['file_type']}")
+            else:
+                output = export_pages_to_xlsx(page_dicts, document["original_filename"])
+            return export_response(
+                output,
+                f"{stem}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+
         if document["file_type"] in {"csv", "xls", "xlsx"}:
             path = UPLOAD_DIR / document["stored_filename"]
             if not path.exists():
                 raise HTTPException(status_code=404, detail="Stored file not found")
-            output = spreadsheet_to_csv(path, f".{document['file_type']}")
+            output = spreadsheet_to_pdf(path, f".{document['file_type']}", document["original_filename"])
         else:
-            output = export_pages_to_csv([row_to_dict(row) for row in pages])
-        return FileResponse(output, filename=f"{stem}.csv", media_type="text/csv")
-
-    if format == "txt":
-        output = export_pages_to_txt([row_to_dict(row) for row in pages], document["original_filename"])
-        return FileResponse(output, filename=f"{stem}.txt", media_type="text/plain")
-
-    if document["file_type"] in {"csv", "xls", "xlsx"}:
-        path = UPLOAD_DIR / document["stored_filename"]
-        if not path.exists():
-            raise HTTPException(status_code=404, detail="Stored file not found")
-        output = spreadsheet_to_pdf(path, f".{document['file_type']}", document["original_filename"])
-    else:
-        output = export_pages_to_pdf([row_to_dict(row) for row in pages], document["original_filename"])
-    return FileResponse(output, filename=f"{stem}.pdf", media_type="application/pdf")
+            output = export_pages_to_pdf(page_dicts, document["original_filename"])
+        return export_response(output, f"{stem}.pdf", "application/pdf")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Export failed: {exc}") from exc
 
 
 @router.get("/{document_id}/download")
