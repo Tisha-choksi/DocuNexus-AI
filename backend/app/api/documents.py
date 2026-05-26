@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from ..config import ALLOWED_EXTENSIONS, MAX_UPLOAD_MB, UPLOAD_DIR
 from ..database import get_connection, now_iso
@@ -53,7 +54,12 @@ def document_metadata_payload(document: dict, metadata: dict) -> dict:
 def export_response(path: Path, filename: str, media_type: str) -> FileResponse:
     if not path.exists() or path.stat().st_size == 0:
         raise HTTPException(status_code=500, detail="Export file was not created.")
-    return FileResponse(path, filename=filename, media_type=media_type)
+    return FileResponse(
+        path,
+        filename=filename,
+        media_type=media_type,
+        background=BackgroundTask(path.unlink, missing_ok=True),
+    )
 
 
 @router.post("/upload")
